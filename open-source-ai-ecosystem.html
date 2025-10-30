@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Source AI Ecosystem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #111827;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            background-color: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 1rem 1.5rem;
+            width: 100%;
+            z-index: 10;
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #111827;
+            text-align: center;
+        }
+        #chart-container {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .link {
+            stroke: #9ca3af;
+            stroke-opacity: 0.6;
+        }
+        .node text {
+            font-size: 10px;
+            font-weight: 500;
+            fill: #374151;
+            pointer-events: none; /* Make text non-interactive so dragging works */
+            text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+        }
+        .node circle {
+            stroke: #fff;
+            stroke-width: 1.5px;
+            cursor: move;
+        }
+        #legend {
+            position: absolute;
+            bottom: 1.5rem;
+            left: 1.5rem;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 1px solid #e5e7eb;
+            z-index: 5;
+        }
+        #legend h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0 0 0.5rem 0;
+            color: #111827;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .legend-text {
+            font-size: 0.75rem;
+            color: #4b5563;
+        }
+        /* Added for Gemini Pane */
+        .prose-error { 
+            color: #dc2626; /* text-red-600 */
+            font-style: italic; 
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Open Source AI Ecosystem Components</h1>
+    </header>
+
+    <div id="chart-container">
+        <div id="legend">
+            <h3>Categories</h3>
+            <!-- Legend items will be added by D3 -->
+        </div>
+        <!-- SVG for D3 graph will be created here -->
+        
+        <!-- Gemini Details Pane -->
+        <div id="details-backdrop" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-20 hidden" onclick="hideDetailsPane()"></div>
+        <div id="details-pane" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-11/12 max-w-lg bg-white rounded-lg shadow-2xl z-30 hidden overflow-hidden transition-all duration-300 ease-in-out">
+            <div id="details-content" class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 id="details-title" class="text-xl font-semibold text-gray-900">Node Title</h2>
+                    <button id="close-btn" class="text-gray-400 hover:text-gray-600" onclick="hideDetailsPane()">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="mb-4">
+                    <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Examples</h3>
+                    <p id="details-examples" class="text-gray-700 mt-1">Example 1, Example 2</p>
+                </div>
+                <hr class="my-4">
+                <div class="mb-4">
+                    <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Gemini Explanation</h3>
+                    <div id="gemini-explanation" class="text-gray-700 text-sm max-h-40 overflow-y-auto p-3 bg-gray-50 rounded-md prose">
+                        Click the button to get an AI-powered explanation.
+                    </div>
+                    <div id="gemini-loader" class="hidden my-3 text-center">
+                        <div class="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent" role="status">
+                            <span class="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="gemini-btn" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:from-blue-600 hover:to-purple-700 transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed" onclick="handleGeminiClick()">
+                    ✨ Get AI Explanation
+                </button>
+                <span id="gemini-node-name" class="hidden"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Gemini API Configuration ---
+        const apiKey = ""; // Leave as-is, will be populated by the environment
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        // 1. Define the Data
+        const ecosystemData = {
+            nodes: [
+                // Group 1: Core Foundation
+                { id: "Open Source Programming Languages", group: 1, examples: "Python, R, C++" },
+                { id: "Open Source Libraries", group: 1, examples: "NumPy, Pandas, Scikit-learn" },
+                { id: "Open Source Frameworks", group: 1, examples: "PyTorch, TensorFlow, Keras" },
+                { id: "Core Models and Capabilities", group: 1, examples: "Transformer, CNN, GANs" },
+                { id: "Open Source Models", group: 1, examples: "Llama 3, Mistral 7B, Stable Diffusion" },
+
+                // Group 2: The Fuel
+                { id: "Open DataSets", group: 2, examples: "ImageNet, Common Crawl, LAION-5B" },
+                { id: "Data Processing Applications", group: 2, examples: "Apache Spark, Apache Kafka" },
+                { id: "Open Source database Tools", group: 2, examples: "PostgreSQL, MongoDB, Milvus" },
+                { id: "Computing Power", group: 2, examples: "NVIDIA H100 GPUs, Google TPUs" },
+                { id: "Hyperscalers", group: 2, examples: "AWS, Google Cloud, Microsoft Azure" },
+
+                // Group 3: The People
+                { id: "Academic and Research Institutes", group: 3, examples: "Stanford (SAIL), MIT (CSAIL)" },
+                { id: "Industry Research Labs", group: 3, examples: "Meta AI, Google Research" },
+                { id: "Open Source Communities", group: 3, examples: "Hugging Face, GitHub" },
+                { id: "Non Profits - Collaborative Hubs", group: 3, examples: "Linux Foundation (LF AI), Apache" },
+                { id: "Innovation cells, Hubs", group: 3, examples: "AI Centers of Excellence, Y Combinator" },
+
+                // Group 4: The Application
+                { id: "Open Source IDEs", group: 4, examples: "VS Code, Jupyter Notebooks" },
+                { id: "Open SDKs", group: 4, examples: "LangChain, LlamaIndex" },
+                { id: "Open Source ML-Ops Framework", group: 4, examples: "Kubeflow, MLflow, BentoML" },
+                { id: "System Integrators", group: 4, examples: "Accenture, Infosys, TCS" },
+
+                // Group 5: The Rules & Drivers
+                { id: "Open Source Licensing", group: 5, examples: "MIT, Apache 2.0, Llama 3 License" },
+                { id: "Open APIs", group: 5, examples: "REST, gRPC" },
+                { id: "Open Source Protocols like MCP etc", group: 5, examples: "HTTP, MQTT, MCP" },
+                { id: "technology Drivers", group: 5, examples: "Automation, Personalization" },
+                { id: "Open Innovation Platforms", group: 5, examples: "Kaggle, GitHub" }
+            ],
+            links: [
+                // Group 1: Core Foundation
+                { source: "Open Source Programming Languages", target: "Open Source Libraries" },
+                { source: "Open Source Libraries", target: "Open Source Frameworks" },
+                { source: "Open Source Frameworks", target: "Open Source Models" },
+                { source: "Core Models and Capabilities", target: "Open Source Models" },
+                { source: "Open Source Frameworks", target: "Core Models and Capabilities" },
+
+                // Group 2: The Fuel
+                { source: "Open DataSets", target: "Data Processing Applications" },
+                { source: "Data Processing Applications", target: "Open Source database Tools" },
+                { source: "Computing Power", target: "Hyperscalers" },
+
+                // Group 3: The People
+                { source: "Academic and Research Institutes", target: "Core Models and Capabilities" },
+                { source: "Industry Research Labs", target: "Core Models and Capabilities" },
+                { source: "Open Source Communities", target: "Non Profits - Collaborative Hubs" },
+                { source: "Innovation cells, Hubs", target: "Open Source Models" },
+                { source: "Open Source Communities", target: "Open Source Models" },
+                { source: "Open Source Communities", target: "Open Source Frameworks" },
+
+                // Group 4: The Application
+                { source: "Open Source IDEs", target: "Open Source Programming Languages" },
+                { source: "Open SDKs", target: "Open Source Models" },
+                { source: "Open Source ML-Ops Framework", target: "Open Source Models" },
+                { source: "System Integrators", target: "Open Source ML-Ops Framework" },
+                { source: "System Integrators", target: "Hyperscalers" },
+
+                // Group 5: The Rules & Drivers
+                { source: "technology Drivers", target: "Open Innovation Platforms" },
+                { source: "Open Source Licensing", target: "Open Source Models" },
+                { source: "Open Source Licensing", target: "Open Source Frameworks" },
+                { source: "Open APIs", target: "Open SDKs" },
+                { source: "Open Source Protocols like MCP etc", target: "Open APIs" },
+                { source: "Open Innovation Platforms", target: "Open Source Communities" },
+
+                // --- Cross-group connections ---
+                { source: "Open DataSets", target: "Open Source Models" }, // Fuel -> Core
+                { source: "Computing Power", target: "Open Source Models" }, // Fuel -> Core
+                { source: "Hyperscalers", target: "Open Source Models" }, // Fuel -> Core
+                { source: "Data Processing Applications", target: "Open Source Frameworks" }, // Fuel -> Core
+                { source: "Academic and Research Institutes", target: "Open Source Models" }, // People -> Core
+                { source: "Industry Research Labs", target: "Open Source Models" }, // People -> Core
+                { source: "Open Source Communities", target: "Open Source Libraries" }, // People -> Core
+                { source: "Open SDKs", target: "Open APIs" }, // Application -> Rules
+                { source: "System Integrators", target: "Open Source Models" } // Application -> Core
+            ]
+        };
+
+        // 2. Setup Dimensions and Colors
+        const container = d3.select("#chart-container");
+        const bounds = container.node().getBoundingClientRect();
+        const width = bounds.width;
+        const height = bounds.height;
+
+        const groupNames = [
+            "Core Foundation",
+            "The Fuel (Data & Infra)",
+            "The People (Research & Community)",
+            "The Application (Tools & Services)",
+            "The Rules (Governance & Drivers)"
+        ];
+        
+        // Use a vibrant, distinct color scale
+        const color = d3.scaleOrdinal(d3.schemeSet1)
+            .domain(d3.range(1, 6));
+
+        // 3. Create SVG
+        const svg = container.append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("viewBox", [0, 0, width, height])
+            .attr("style", "max-width: 100%; height: auto;");
+
+        // 4. Setup Simulation
+        const simulation = d3.forceSimulation(ecosystemData.nodes)
+            .force("link", d3.forceLink(ecosystemData.links).id(d => d.id).distance(100).strength(0.5))
+            .force("charge", d3.forceManyBody().strength(-400)) // Increased repulsion
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collide", d3.forceCollide().radius(d => (d.id.length > 25 ? 14 : 10) * 1.5 + 10)); // Collision based on text length
+
+        // 5. Render Elements
+        const link = svg.append("g")
+            .attr("class", "links")
+            .selectAll("line")
+            .data(ecosystemData.links)
+            .join("line")
+            .attr("class", "link");
+
+        const node = svg.append("g")
+            .attr("class", "nodes")
+            .selectAll("g")
+            .data(ecosystemData.nodes)
+            .join("g")
+            .attr("class", "node")
+            .style("cursor", "pointer"); // Add pointer cursor to the whole node group
+
+        // Add circles with radius based on text length for better collision
+        node.append("circle")
+            .attr("r", d => (d.id.length > 25 ? 14 : 10)) // Larger circle for longer text
+            .attr("fill", d => color(d.group))
+            .call(drag(simulation));
+
+        // Add text labels
+        node.append("text")
+            .text(d => d.id)
+            .attr("x", d => (d.id.length > 25 ? 17 : 13)) // Position text next to circle
+            .attr("y", 3); // Slightly offset for vertical centering
+
+        // Add tooltips (native browser tooltip)
+        node.append("title")
+            .text(d => `Group: ${groupNames[d.group - 1]}\nExamples: ${d.examples}`);
+        
+        // --- NEW: Add click handler to the node group ---
+        node.on("click", (event, d) => {
+            // Prevent click from firing if a drag just ended
+            if (event.defaultPrevented) return;
+            showDetailsPane(d);
+        });
+
+        // 6. Ticked function
+        simulation.on("tick", () => {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            node
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        // 7. Drag function
+        function drag(simulation) {
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+
+            return d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended);
+        }
+
+        // 8. Create Legend
+        const legend = d3.select("#legend");
+        const legendItems = legend.selectAll(".legend-item")
+            .data(groupNames)
+            .enter()
+            .append("div")
+            .attr("class", "legend-item");
+
+        legendItems.append("div")
+            .attr("class", "legend-color")
+            .style("background-color", (d, i) => color(i + 1));
+
+        legendItems.append("span")
+            .attr("class", "legend-text")
+            .text(d => d);
+            
+        // 9. Handle window resize
+        window.addEventListener('resize', () => {
+            const newBounds = container.node().getBoundingClientRect();
+            const newWidth = newBounds.width;
+            const newHeight = newBounds.height;
+            
+            svg.attr("width", newWidth)
+               .attr("height", newHeight)
+               .attr("viewBox", [0, 0, newWidth, newHeight]);
+               
+            simulation.force("center", d3.forceCenter(newWidth / 2, newHeight / 2))
+                      .alpha(0.3).restart(); // Reheat the simulation
+        });
+
+        // --- Gemini API and Details Pane Logic ---
+
+        const backdrop = document.getElementById('details-backdrop');
+        const pane = document.getElementById('details-pane');
+        const titleEl = document.getElementById('details-title');
+        const examplesEl = document.getElementById('details-examples');
+        const explanationEl = document.getElementById('gemini-explanation');
+        const loaderEl = document.getElementById('gemini-loader');
+        const geminiBtn = document.getElementById('gemini-btn');
+        const nodeNameStorage = document.getElementById('gemini-node-name');
+
+        function showDetailsPane(nodeData) {
+            titleEl.textContent = nodeData.id;
+            examplesEl.textContent = nodeData.examples;
+            nodeNameStorage.textContent = nodeData.id;
+            explanationEl.innerHTML = "Click the button to get an AI-powered explanation.";
+            explanationEl.classList.remove('prose-error'); // Remove error class if present
+            loaderEl.classList.add('hidden');
+            geminiBtn.disabled = false;
+            
+            backdrop.classList.remove('hidden');
+            pane.classList.remove('hidden');
+        }
+
+        function hideDetailsPane() {
+            backdrop.classList.add('hidden');
+            pane.classList.add('hidden');
+        }
+
+        function handleGeminiClick() {
+            const nodeName = nodeNameStorage.textContent;
+            if (nodeName) {
+                getGeminiExplanation(nodeName);
+            }
+        }
+
+        async function getGeminiExplanation(nodeName) {
+            explanationEl.innerHTML = "";
+            loaderEl.classList.remove('hidden');
+            geminiBtn.disabled = true;
+
+            const systemPrompt = "You are a helpful expert on the AI and Open Source ecosystem. Your answers are clear, concise (1-2 paragraphs), and informative.";
+            const userQuery = `Explain what "${nodeName}" is in the context of the Open Source AI Ecosystem and why it's important.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            try {
+                const result = await callGeminiApiWithRetry(payload);
+                const candidate = result.candidates?.[0];
+                
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    // Simple markdown-to-HTML
+                    let text = candidate.content.parts[0].text;
+                    text = text.replace(/\n/g, '<br>'); // Newlines to breaks
+                    explanationEl.innerHTML = text;
+                } else {
+                    throw new Error("Invalid response from API.");
+                }
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                explanationEl.innerHTML = "Sorry, I couldn't get an explanation. Please try again later.";
+                explanationEl.classList.add('prose-error');
+            } finally {
+                loaderEl.classList.add('hidden');
+                geminiBtn.disabled = false;
+            }
+        }
+
+        /**
+         * Calls the Gemini API with exponential backoff for retries.
+         * @param {object} payload The payload to send to the API.
+         * @param {number} retries The maximum number of retries.
+         * @param {number} delay The initial delay in milliseconds.
+         * @returns {Promise<object>} The JSON response from the API.
+         */
+        async function callGeminiApiWithRetry(payload, retries = 5, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 || response.status >= 500) {
+                            // Throttling or server error, worth retrying
+                            throw new Error(`API Error: ${response.statusText} (Status: ${response.status})`);
+                        } else {
+                            // Other client-side error, don't retry
+                            const errText = await response.text();
+                            console.error("Non-retryable API error:", errText);
+                            throw new Error(`API Error: ${response.statusText}. ${errText}`);
+                        }
+                    }
+                    
+                    const result = await response.json();
+                    if (!result.candidates) {
+                         // Valid response but no content, maybe retry
+                         throw new Error("API returned no candidates. Retrying...");
+                    }
+                    
+                    return result; // Success
+
+                } catch (error) {
+                    // Do not log to console as error, as retries are expected
+                    if (i === retries - 1) {
+                        // Last attempt failed
+                        console.error("Gemini API call failed after all retries:", error);
+                        throw error;
+                    }
+                    // Wait for exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2; // Increase delay
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
