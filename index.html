@@ -104,6 +104,42 @@
             color: #dc2626; /* text-red-600 */
             font-style: italic; 
         }
+        /* Style for the zoom slider */
+        #zoom-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #d1d5db; /* bg-gray-300 */
+            border-radius: 5px;
+            outline: none;
+            opacity: 0.7;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+        }
+        #zoom-slider:hover {
+            opacity: 1;
+        }
+        #zoom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #3b82f6; /* bg-blue-500 */
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        #zoom-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #3b82f6; /* bg-blue-500 */
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
@@ -116,7 +152,12 @@
             <h3>Categories</h3>
             <!-- Legend items will be added by D3 -->
         </div>
-        <!-- SVG for D3 graph will be created here -->
+
+        <!-- NEW: Zoom Slider -->
+        <div id="zoom-slider-container" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white bg-opacity-90 p-3 rounded-lg shadow-lg border border-gray-200 z-50 w-64">
+            <label for="zoom-slider" class="block text-xs font-medium text-gray-600 mb-1 text-center">Zoom</label>
+            <input type="range" id="zoom-slider" min="0.1" max="8" step="0.01" value="1" class="w-full">
+        </div>
         
         <!-- Gemini Details Pane -->
         <div id="details-backdrop" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-20 hidden" onclick="hideDetailsPane()"></div>
@@ -329,11 +370,24 @@
         function zoomed(event) {
             // Apply the zoom transform to the main container
             mainContainer.attr("transform", event.transform);
+            
+            // --- NEW: Update slider value on zoom ---
+            d3.select("#zoom-slider").property("value", event.transform.k);
         }
 
         // --- NEW: Apply zoom behavior to the SVG ---
         // This must be called on the SVG, not the mainContainer
         svg.call(zoom);
+
+        // --- NEW: Link slider to zoom behavior ---
+        const zoomSlider = d3.select("#zoom-slider");
+        
+        zoomSlider.on("input", (event) => {
+            const newScale = +event.target.value;
+            // Programmatically zoom to the slider's value
+            // Use a transition for a smoother feel
+            svg.transition().duration(50).call(zoom.scaleTo, newScale);
+        });
 
         // 6. Ticked function
         simulation.on("tick", () => {
@@ -528,4 +582,5 @@
     </script>
 </body>
 </html>
+
 
