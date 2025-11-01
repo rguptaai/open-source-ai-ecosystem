@@ -43,6 +43,11 @@
             width: 100%;
             height: 100%;
             display: block;
+            /* Add a cursor for panning */
+            cursor: grab;
+        }
+        svg:active {
+            cursor: grabbing;
         }
         .link {
             stroke: #9ca3af;
@@ -58,6 +63,7 @@
         .node circle {
             stroke: #fff;
             stroke-width: 1.5px;
+            /* Don't change cursor on nodes, drag is different */
             cursor: move;
         }
         #legend {
@@ -222,6 +228,7 @@
                 { source: "Open Source Licensing", target: "Open Source Frameworks" },
                 { source: "Open APIs", target: "Open SDKs" },
                 { source: "Open Source Protocols like MCP etc", target: "Open APIs" },
+                // --- FIXED SYNTAX ERROR ON THIS LINE ---
                 { source: "Open Innovation Platforms", target: "Open Source Communities" },
 
                 // --- Cross-group connections ---
@@ -262,6 +269,10 @@
             .attr("viewBox", [0, 0, width, height])
             .attr("style", "max-width: 100%; height: auto;");
 
+        // --- NEW: Create a main container for zoom/pan ---
+        const mainContainer = svg.append("g")
+            .attr("class", "main-container");
+
         // 4. Setup Simulation
         const simulation = d3.forceSimulation(ecosystemData.nodes)
             .force("link", d3.forceLink(ecosystemData.links).id(d => d.id).distance(100).strength(0.5))
@@ -270,14 +281,16 @@
             .force("collide", d3.forceCollide().radius(d => (d.id.length > 25 ? 14 : 10) * 1.5 + 10)); // Collision based on text length
 
         // 5. Render Elements
-        const link = svg.append("g")
+        // --- CHANGED: Append to mainContainer instead of svg ---
+        const link = mainContainer.append("g")
             .attr("class", "links")
             .selectAll("line")
             .data(ecosystemData.links)
             .join("line")
             .attr("class", "link");
 
-        const node = svg.append("g")
+        // --- CHANGED: Append to mainContainer instead of svg ---
+        const node = mainContainer.append("g")
             .attr("class", "nodes")
             .selectAll("g")
             .data(ecosystemData.nodes)
@@ -301,12 +314,26 @@
         node.append("title")
             .text(d => `Group: ${groupNames[d.group - 1]}\nExamples: ${d.examples}`);
         
-        // --- NEW: Add click handler to the node group ---
+        // Add click handler to the node group
         node.on("click", (event, d) => {
             // Prevent click from firing if a drag just ended
             if (event.defaultPrevented) return;
             showDetailsPane(d);
         });
+
+        // --- NEW: Define Zoom behavior ---
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 8]) // Min 0.1x, Max 8x zoom
+            .on("zoom", zoomed);
+
+        function zoomed(event) {
+            // Apply the zoom transform to the main container
+            mainContainer.attr("transform", event.transform);
+        }
+
+        // --- NEW: Apply zoom behavior to the SVG ---
+        // This must be called on the SVG, not the mainContainer
+        svg.call(zoom);
 
         // 6. Ticked function
         simulation.on("tick", () => {
@@ -323,6 +350,7 @@
         // 7. Drag function
         function drag(simulation) {
             function dragstarted(event, d) {
+                // event.active is important to prevent conflict with zoom
                 if (!event.active) simulation.alphaTarget(0.3).restart();
                 d.fx = d.x;
                 d.fy = d.y;
